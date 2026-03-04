@@ -258,10 +258,11 @@ static UINT8 calc_smbios_checksum(UINT8 *data, UINTN length)
 
 EFI_STATUS smbios_inject(const smbios_table_t *fake)
 {
-    if (!fake)
+    if (!fake || fake->count == 0 || fake->count > 64)
         return EFI_INVALID_PARAMETER;
 
     Print(L"[SMBIOS] Injecting fake table into memory...\n");
+    Print(L"[SMBIOS] Table has %u entries\n", fake->count);
 
     EFI_STATUS status;
     EFI_GUID smbios3_guid = SMBIOS3_TABLE_GUID;

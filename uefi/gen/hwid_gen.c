@@ -1,4 +1,5 @@
 #include "hwid_gen.h"
+#include "../utils/smbios_helpers.h"
 
 static UINT64 seed = 0;
 static EFI_SYSTEM_TABLE *systab = NULL;

@@ -1,6 +1,57 @@
 #include "smbios_helpers.h"
+#include <efi.h>
+#include <efilib.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+CHAR8 *AsciiStrStr(const CHAR8 *String, const CHAR8 *SearchString)
+{
+    if (*SearchString == '\0')
+        return (CHAR8 *)String;
+    while (*String != '\0') {
+        const CHAR8 *p1 = String;
+        const CHAR8 *p2 = SearchString;
+        while (*p1 != '\0' && *p2 != '\0' && *p1 == *p2) {
+            p1++;
+            p2++;
+        }
+        if (*p2 == '\0')
+            return (CHAR8 *)String;
+        String++;
+    }
+    return NULL;
+}
+
+UINTN AsciiSPrint(CHAR8 *StartOfBuffer, UINTN BufferSize, const CHAR8 *FormatString, ...)
+{
+    CHAR16 WideFormat[256];
+    CHAR16 WideBuffer[256];
+    va_list Marker;
+    UINTN i = 0;
+
+    // Converte o formato ASCII para Wide String
+    while (FormatString[i] != '\0' && i < 255) {
+        WideFormat[i] = (CHAR16)FormatString[i];
+        i++;
+    }
+    WideFormat[i] = '\0';
+
+    // Delega para a função nativa do gnu-efi
+    va_start(Marker, FormatString);
+    VSPrint(WideBuffer, sizeof(WideBuffer), WideFormat, Marker);
+    va_end(Marker);
+
+    // Converte o resultado de volta para ASCII
+    i = 0;
+    while (WideBuffer[i] != '\0' && i < BufferSize - 1) {
+        StartOfBuffer[i] = (CHAR8)WideBuffer[i];
+        i++;
+    }
+    StartOfBuffer[i] = '\0';
+
+    return i;
+}
 
 void smbios_table_init(smbios_table_t *table)
 {
@@ -87,6 +138,12 @@ bool smbios_add_strings(smbios_table_entry_t *entry, const char **strings, uint8
         return false;
 
     uint16_t offset = entry->length - 4;
+
+    // SAFETY: verifica se já tem espaço pra pelo menos as strings
+    if (offset >= 500) { // deixa pelo menos 12 bytes de margem
+        return false;
+    }
+
     uint8_t *str_area = entry->data + offset;
     uint16_t space_left = 512 - offset;
 
@@ -95,8 +152,11 @@ bool smbios_add_strings(smbios_table_entry_t *entry, const char **strings, uint8
             continue;
 
         size_t len = strlen(strings[i]) + 1;
-        if (len > space_left)
+
+        // SAFETY: verifica overflow
+        if (len > space_left || len > 100) { // limite de 100 chars por string
             return false;
+        }
 
         memcpy(str_area, strings[i], len);
         str_area += len;
@@ -104,8 +164,11 @@ bool smbios_add_strings(smbios_table_entry_t *entry, const char **strings, uint8
         offset += len;
     }
 
-    if (space_left < 1)
+    // termina com double null
+    if (space_left < 2) // precisa de 2 bytes pro double null
         return false;
+
+    *str_area++ = 0;
     *str_area = 0;
 
     return true;
@@ -148,12 +211,18 @@ uint8_t smbios_calc_checksum(const smbios_table_t *table)
 
 uint32_t smbios_serialize(const smbios_table_t *table, uint8_t *buffer, uint32_t buf_size)
 {
-    if (!table || !buffer)
+    if (!table || !buffer || buf_size < 512)
         return 0;
 
     uint32_t offset = 0;
     for (uint16_t i = 0; i < table->count; i++) {
         const smbios_table_entry_t *e = &table->entries[i];
+
+        // SAFETY: valida entry
+        if (e->length < 4 || e->length > 255) {
+            return 0;
+        }
+
         uint32_t entry_size = e->length + 2;
 
         if (offset + entry_size > buf_size)
@@ -164,10 +233,26 @@ uint32_t smbios_serialize(const smbios_table_t *table, uint8_t *buffer, uint32_t
         buffer[offset++] = e->handle & 0xFF;
         buffer[offset++] = (e->handle >> 8) & 0xFF;
 
-        memcpy(buffer + offset, e->data, e->length - 4);
-        offset += e->length - 4;
+        // SAFETY: valida antes de copiar
+        uint16_t data_size = e->length - 4;
+        if (data_size > 508) { // max data size
+            return 0;
+        }
+
+        memcpy(buffer + offset, e->data, data_size);
+        offset += data_size;
 
         buffer[offset++] = 0;
+        buffer[offset++] = 0;
+    }
+
+    // adiciona end-of-table marker (type 127)
+    if (offset + 6 <= buf_size) {
+        buffer[offset++] = 127;  // type
+        buffer[offset++] = 4;    // length
+        buffer[offset++] = 0xFF; // handle
+        buffer[offset++] = 0xFF;
+        buffer[offset++] = 0; // double null
         buffer[offset++] = 0;
     }
 

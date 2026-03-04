@@ -1,10 +1,15 @@
 #ifndef SMBIOS_HELPERS_H
 #define SMBIOS_HELPERS_H
 
+#include <efi.h>
+#include <efilib.h>
+
 #include "../include/common.h"
 #include "../include/smbios_defs.h"
 #include <stdbool.h>
 
+CHAR8 *AsciiStrStr(const CHAR8 *String, const CHAR8 *SearchString);
+UINTN AsciiSPrint(CHAR8 *StartOfBuffer, UINTN BufferSize, const CHAR8 *FormatString, ...);
 // init/cleanup
 void smbios_table_init(smbios_table_t *table);
 
