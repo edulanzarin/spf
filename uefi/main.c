@@ -5,6 +5,7 @@
 #include "spoof/smbios.h"
 #include <efi.h>
 #include <efilib.h>
+#include <string.h>
 
 // global state
 EFI_SYSTEM_TABLE *g_st = NULL;
@@ -32,11 +33,10 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
     g_rt = systab->RuntimeServices;
     g_image = image;
 
-    Print(L"[Nexus] UEFI Spoofer v1.0\n");
+    Print(L"[Shadowbyte] UEFI Spoofer v1.0\n");
 
-    // init HWID generator
     hwid_gen_init(systab);
-    Print(L"[Nexus] HWID generator initialized\n");
+    Print(L"[Shadowbyte] HWID generator initialized\n");
 
     // locate SMBIOS table
     VOID *smbios_addr = NULL;
@@ -46,7 +46,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
         Print(L"[ERROR] Failed to locate SMBIOS table: %r\n", status);
         goto cleanup;
     }
-    Print(L"[Nexus] SMBIOS table found at 0x%lx (size: %u bytes)\n", smbios_addr, smbios_size);
+    Print(L"[Shadowbyte] SMBIOS table found at 0x%lx (size: %u bytes)\n", smbios_addr, smbios_size);
 
     // load hardware profile
     hw_profile_t profile = {0};
@@ -55,7 +55,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
         Print(L"[ERROR] Failed to load profile: %r\n", status);
         goto cleanup;
     }
-    Print(L"[Nexus] Profile loaded: %a\n", profile.name);
+    Print(L"[Shadowbyte] Profile loaded: %a\n", profile.name);
 
     // perform SMBIOS spoofing
     status = spoof_smbios();
@@ -63,14 +63,14 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
         Print(L"[ERROR] SMBIOS spoofing failed: %r\n", status);
         goto cleanup;
     }
-    Print(L"[Nexus] SMBIOS spoofing complete\n");
+    Print(L"[Shadowbyte] SMBIOS spoofing complete\n");
 
     // TODO: ACPI spoofing
     // TODO: TPM spoofing
     // TODO: Disk/Network protocol hooks
 
-    Print(L"[Nexus] All spoofs applied successfully\n");
-    Print(L"[Nexus] Chainloading original bootloader...\n");
+    Print(L"[Shadowbyte] All spoofs applied successfully\n");
+    Print(L"[Shadowbyte] Chainloading original bootloader...\n");
 
     // small delay so user can see messages
     g_bs->Stall(2000000); // 2 seconds
@@ -122,7 +122,7 @@ EFI_STATUS locate_smbios_table(VOID **table_addr, UINTN *table_size)
         if (CompareGuid(&g_st->ConfigurationTable[i].VendorGuid, &smbios_guid) == 0) {
             *table_addr = g_st->ConfigurationTable[i].VendorTable;
             // SMBIOS 2.x entry point
-            smbios_entry_t *entry = (smbios_entry_t *)*table_addr;
+            smbios_ep_t *entry = (smbios_ep_t *)*table_addr;
             *table_size = entry->table_len;
             return EFI_SUCCESS;
         }
@@ -153,19 +153,15 @@ EFI_STATUS load_profile(hw_profile_t *profile)
     if (!profile)
         return EFI_INVALID_PARAMETER;
 
-    // TODO: try to load from NVRAM variable
-    // TODO: if not found, use default gaming profile
+    // usa strncpy ao invés de AsciiStrCpyS
+    strncpy(profile->name, "Default Gaming Rig", sizeof(profile->name) - 1);
+    profile->name[sizeof(profile->name) - 1] = '\0';
 
-    // for now, use hardcoded default
-    AsciiStrCpyS(profile->name, sizeof(profile->name), "Default Gaming Rig");
-
-    // generate random IDs
     UINT8 oui[] = {MAC_REALTEK_1};
     gen_mac_address(profile->mac, oui);
-    gen_disk_serial(profile->disk_serial, DISK_SAMSUNG);
-    AsciiStrCpyS(profile->disk_model, sizeof(profile->disk_model), "Samsung SSD 980 PRO 1TB");
-
-    // TODO: build complete SMBIOS table
+    gen_disk_serial((UINT8 *)profile->disk_serial, (UINT8 *)DISK_SAMSUNG);
+    strncpy(profile->disk_model, "Samsung SSD 980 PRO 1TB", sizeof(profile->disk_model) - 1);
+    profile->disk_model[sizeof(profile->disk_model) - 1] = '\0';
 
     return EFI_SUCCESS;
 }
@@ -187,7 +183,7 @@ EFI_STATUS chainload_bootloader(VOID)
         return status;
     }
 
-    Print(L"[Nexus] Found %u file systems\n", handle_count);
+    Print(L"[Shadowbyte] Found %u file systems\n", handle_count);
 
     // try to find bootloader
     // common paths: \EFI\ubuntu\grubx64.efi, \EFI\Microsoft\Boot\bootmgfw.efi
@@ -213,7 +209,7 @@ EFI_STATUS chainload_bootloader(VOID)
             status = root->Open(root, &bootloader, bootloader_paths[j], EFI_FILE_MODE_READ, 0);
 
             if (!EFI_ERROR(status)) {
-                Print(L"[Nexus] Found bootloader: %s\n", bootloader_paths[j]);
+                Print(L"[Shadowbyte] Found bootloader: %s\n", bootloader_paths[j]);
                 bootloader->Close(bootloader);
                 root->Close(root);
 

@@ -21,25 +21,20 @@ EFI_STATUS smbios_read_original(smbios_table_t *table, VOID *smbios_addr, UINTN 
 
     Print(L"[SMBIOS] Reading original table...\n");
 
-    // cast to entry point
-    smbios_entry_t *ep = (smbios_entry_t *)smbios_addr;
+    smbios_ep_t *ep = (smbios_ep_t *)smbios_addr;
 
-    // validate signature
     if (CompareMem(ep->anchor, "_SM_", 4) != 0) {
-        // try SMBIOS 3.0
         smbios3_entry_t *ep3 = (smbios3_entry_t *)smbios_addr;
         if (CompareMem(ep3->anchor, "_SM3_", 5) != 0) {
             Print(L"[ERROR] Invalid SMBIOS signature\n");
             return EFI_INVALID_PARAMETER;
         }
-        // SMBIOS 3.0
         UINT8 *table_data = (UINT8 *)(UINTN)ep3->table_addr;
         if (!smbios_deserialize(table, table_data, ep3->table_max_sz)) {
             Print(L"[ERROR] Failed to deserialize SMBIOS 3.0 table\n");
             return EFI_DEVICE_ERROR;
         }
     } else {
-        // SMBIOS 2.x
         UINT8 *table_data = (UINT8 *)(UINTN)ep->table_addr;
         if (!smbios_deserialize(table, table_data, ep->table_len)) {
             Print(L"[ERROR] Failed to deserialize SMBIOS 2.x table\n");
@@ -72,21 +67,21 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         bios.version_str = 2;
         bios.starting_segment = 0xE800;
         bios.release_date_str = 3;
-        bios.rom_size = 0x80; // 128 * 64KB = 8MB
+        bios.rom_size = 0x80;
         bios.characteristics = 0x0B0DE98000;
         bios.bios_major_release = 5;
         bios.bios_minor_release = 17;
 
-        UINT16 handle = smbios_add_entry(fake, SMBIOS_TYPE_BIOS, &bios, sizeof(bios) - 4);
+        smbios_add_entry(fake, SMBIOS_TYPE_BIOS, &bios, sizeof(bios) - 4);
 
-        const CHAR8 *strings[] = {BIOS_VENDOR_AMI, "1220", "07/14/2023"};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_BIOS, 0);
-        smbios_add_strings(entry, strings, 3);
+        const CHAR8 *strings[] = {(CHAR8 *)BIOS_VENDOR_AMI, (CHAR8 *)"1220", (CHAR8 *)"07/14/2023"};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_BIOS, 0);
+        smbios_add_strings(entry, (const char **)strings, 3);
 
         Print(L"[SMBIOS] Added Type 0 (BIOS)\n");
     }
 
-    // type 1 - system (CRITICAL)
+    // type 1 - system
     {
         smbios_type1_t sys = {0};
         sys.header.type = SMBIOS_TYPE_SYSTEM;
@@ -99,25 +94,27 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         sys.sku_str = 5;
         sys.family_str = 6;
 
-        // generate UUID
         gen_uuid(sys.uuid);
 
         smbios_add_entry(fake, SMBIOS_TYPE_SYSTEM, &sys, sizeof(sys) - 4);
 
-        // generate serial
         CHAR8 serial[32];
         gen_serial(serial, 20);
 
-        const CHAR8 *strings[] = {MOBO_ASUS, "System Product Name", "System Version", serial, "SKU",
-                                  "Desktop"};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_SYSTEM, 0);
-        smbios_add_strings(entry, strings, 6);
+        const CHAR8 *strings[] = {(CHAR8 *)MOBO_ASUS,
+                                  (CHAR8 *)"System Product Name",
+                                  (CHAR8 *)"System Version",
+                                  serial,
+                                  (CHAR8 *)"SKU",
+                                  (CHAR8 *)"Desktop"};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_SYSTEM, 0);
+        smbios_add_strings(entry, (const char **)strings, 6);
 
         Print(L"[SMBIOS] Added Type 1 (System) - UUID: %02X%02X%02X%02X-...\n", sys.uuid[0],
               sys.uuid[1], sys.uuid[2], sys.uuid[3]);
     }
 
-    // type 2 - baseboard (CRITICAL)
+    // type 2 - baseboard
     {
         smbios_type2_t board = {0};
         board.header.type = SMBIOS_TYPE_BASEBOARD;
@@ -139,10 +136,14 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         CHAR8 asset[32];
         gen_asset_tag(asset, 32);
 
-        const CHAR8 *strings[] = {MOBO_ASUS, "PRIME B450M-GAMING/BR", "Rev X.0x", serial,
-                                  asset,     "Default string"};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_BASEBOARD, 0);
-        smbios_add_strings(entry, strings, 6);
+        const CHAR8 *strings[] = {(CHAR8 *)MOBO_ASUS,
+                                  (CHAR8 *)"PRIME B450M-GAMING/BR",
+                                  (CHAR8 *)"Rev X.0x",
+                                  serial,
+                                  asset,
+                                  (CHAR8 *)"Default string"};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_BASEBOARD, 0);
+        smbios_add_strings(entry, (const char **)strings, 6);
 
         Print(L"[SMBIOS] Added Type 2 (Baseboard)\n");
     }
@@ -169,9 +170,9 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         CHAR8 asset[32];
         gen_asset_tag(asset, 32);
 
-        const CHAR8 *strings[] = {MOBO_ASUS, "Default string", serial, asset};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_CHASSIS, 0);
-        smbios_add_strings(entry, strings, 4);
+        const CHAR8 *strings[] = {(CHAR8 *)MOBO_ASUS, (CHAR8 *)"Default string", serial, asset};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_CHASSIS, 0);
+        smbios_add_strings(entry, (const char **)strings, 4);
 
         Print(L"[SMBIOS] Added Type 3 (Chassis)\n");
     }
@@ -185,14 +186,14 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         cpu.processor_type = PROC_TYPE_CENTRAL_PROCESSOR;
         cpu.processor_family = PROC_FAMILY_AMD_RYZEN_5;
         cpu.processor_manufacturer_str = 2;
-        cpu.processor_id = 0x0870F10; // Ryzen CPUID
+        cpu.processor_id = 0x0870F10;
         cpu.processor_version_str = 3;
         cpu.voltage = 0x8C;
         cpu.external_clock = 100;
         cpu.max_speed = 4600;
         cpu.current_speed = 3600;
         cpu.status = 0x41;
-        cpu.processor_upgrade = 0x2E; // Socket AM4
+        cpu.processor_upgrade = 0x2E;
         cpu.core_count = 6;
         cpu.core_enabled = 6;
         cpu.thread_count = 12;
@@ -200,14 +201,15 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
 
         smbios_add_entry(fake, SMBIOS_TYPE_PROCESSOR, &cpu, sizeof(cpu) - 4);
 
-        const CHAR8 *strings[] = {"AM4", CPU_AMD, "AMD Ryzen 5 5600X 6-Core Processor"};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_PROCESSOR, 0);
-        smbios_add_strings(entry, strings, 3);
+        const CHAR8 *strings[] = {(CHAR8 *)"AM4", (CHAR8 *)CPU_AMD,
+                                  (CHAR8 *)"AMD Ryzen 5 5600X 6-Core Processor"};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_PROCESSOR, 0);
+        smbios_add_strings(entry, (const char **)strings, 3);
 
         Print(L"[SMBIOS] Added Type 4 (Processor)\n");
     }
 
-    // type 17 - memory devices (4x 8GB DDR4)
+    // type 17 - memory
     for (UINT8 slot = 0; slot < 4; slot++) {
         smbios_type17_t ram = {0};
         ram.header.type = SMBIOS_TYPE_MEMORY_DEVICE;
@@ -215,7 +217,7 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         ram.physical_array_handle = 0x0010;
         ram.total_width = 64;
         ram.data_width = 64;
-        ram.size = 8192; // 8GB
+        ram.size = 8192;
         ram.form_factor = MEM_FORM_DIMM;
         ram.device_locator_str = 1;
         ram.bank_locator_str = 2;
@@ -235,9 +237,10 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
         CHAR8 serial[16];
         gen_serial(serial, 12);
 
-        const CHAR8 *strings[] = {loc, bank, "Kingston", serial, "KF3200C16D4/8GX"};
-        smbios_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_MEMORY_DEVICE, slot);
-        smbios_add_strings(entry, strings, 5);
+        const CHAR8 *strings[] = {loc, bank, (CHAR8 *)"Kingston", serial,
+                                  (CHAR8 *)"KF3200C16D4/8GX"};
+        smbios_table_entry_t *entry = smbios_find_entry(fake, SMBIOS_TYPE_MEMORY_DEVICE, slot);
+        smbios_add_strings(entry, (const char **)strings, 5);
     }
     Print(L"[SMBIOS] Added 4x Type 17 (Memory)\n");
 
@@ -245,9 +248,14 @@ EFI_STATUS smbios_build_fake(smbios_table_t *fake, const hw_profile_t *profile)
     return EFI_SUCCESS;
 }
 
-/**
- * inject fake table into UEFI memory
- */
+static UINT8 calc_smbios_checksum(UINT8 *data, UINTN length)
+{
+    UINT8 sum = 0;
+    for (UINTN i = 0; i < length; i++)
+        sum += data[i];
+    return (UINT8)(0x100 - sum);
+}
+
 EFI_STATUS smbios_inject(const smbios_table_t *fake)
 {
     if (!fake)
@@ -255,35 +263,111 @@ EFI_STATUS smbios_inject(const smbios_table_t *fake)
 
     Print(L"[SMBIOS] Injecting fake table into memory...\n");
 
-    // allocate memory for serialized table
-    UINT8 *buffer;
-    UINTN buf_size = 32768; // 32KB should be enough
-    EFI_STATUS status = g_bs->AllocatePool(EfiRuntimeServicesData, buf_size, (VOID **)&buffer);
+    EFI_STATUS status;
+    EFI_GUID smbios3_guid = SMBIOS3_TABLE_GUID;
+    EFI_GUID smbios_guid = SMBIOS_TABLE_GUID;
+
+    UINT8 *table_buffer;
+    UINTN buf_size = 32768;
+    status = g_bs->AllocatePool(EfiRuntimeServicesData, buf_size, (VOID **)&table_buffer);
     if (EFI_ERROR(status)) {
-        Print(L"[ERROR] Failed to allocate memory: %r\n", status);
+        Print(L"[ERROR] Failed to allocate table buffer: %r\n", status);
         return status;
     }
 
-    // serialize table
-    UINT32 serialized_size = smbios_serialize(fake, buffer, buf_size);
-    if (serialized_size == 0) {
+    UINT32 table_size = smbios_serialize(fake, table_buffer, buf_size);
+    if (table_size == 0) {
         Print(L"[ERROR] Failed to serialize table\n");
-        g_bs->FreePool(buffer);
+        g_bs->FreePool(table_buffer);
         return EFI_DEVICE_ERROR;
     }
-    Print(L"[SMBIOS] Serialized %u bytes\n", serialized_size);
+    Print(L"[SMBIOS] Serialized %u bytes\n", table_size);
 
-    // TODO: create new SMBIOS entry point
-    // TODO: update ConfigurationTable pointer
-    // For now, just validate the serialization worked
-    Print(L"[SMBIOS] Injection complete (entry point update TODO)\n");
+    smbios3_entry_t *entry3 = NULL;
+    for (UINTN i = 0; i < g_st->NumberOfTableEntries; i++) {
+        if (CompareGuid(&g_st->ConfigurationTable[i].VendorGuid, &smbios3_guid) == 0) {
+            entry3 = (smbios3_entry_t *)g_st->ConfigurationTable[i].VendorTable;
+            break;
+        }
+    }
+
+    if (entry3) {
+        Print(L"[SMBIOS] Updating SMBIOS 3.0 entry point...\n");
+
+        smbios3_entry_t *new_entry;
+        status = g_bs->AllocatePool(EfiRuntimeServicesData, sizeof(smbios3_entry_t),
+                                    (VOID **)&new_entry);
+        if (EFI_ERROR(status)) {
+            g_bs->FreePool(table_buffer);
+            return status;
+        }
+
+        CopyMem(new_entry, entry3, sizeof(smbios3_entry_t));
+        new_entry->table_addr = (UINT64)(UINTN)table_buffer;
+        new_entry->table_max_sz = table_size;
+
+        new_entry->checksum = 0;
+        new_entry->checksum = calc_smbios_checksum((UINT8 *)new_entry, new_entry->length);
+
+        for (UINTN i = 0; i < g_st->NumberOfTableEntries; i++) {
+            if (CompareGuid(&g_st->ConfigurationTable[i].VendorGuid, &smbios3_guid) == 0) {
+                g_st->ConfigurationTable[i].VendorTable = new_entry;
+                Print(L"[SMBIOS] ConfigurationTable updated (3.0)\n");
+                break;
+            }
+        }
+    } else {
+        smbios_ep_t *entry2 = NULL;
+        for (UINTN i = 0; i < g_st->NumberOfTableEntries; i++) {
+            if (CompareGuid(&g_st->ConfigurationTable[i].VendorGuid, &smbios_guid) == 0) {
+                entry2 = (smbios_ep_t *)g_st->ConfigurationTable[i].VendorTable;
+                break;
+            }
+        }
+
+        if (!entry2) {
+            Print(L"[ERROR] No SMBIOS entry point found\n");
+            g_bs->FreePool(table_buffer);
+            return EFI_NOT_FOUND;
+        }
+
+        Print(L"[SMBIOS] Updating SMBIOS 2.x entry point...\n");
+
+        smbios_ep_t *new_entry;
+        status =
+            g_bs->AllocatePool(EfiRuntimeServicesData, sizeof(smbios_ep_t), (VOID **)&new_entry);
+        if (EFI_ERROR(status)) {
+            g_bs->FreePool(table_buffer);
+            return status;
+        }
+
+        CopyMem(new_entry, entry2, sizeof(smbios_ep_t));
+        new_entry->table_addr = (UINT32)(UINTN)table_buffer;
+        new_entry->table_len = (UINT16)table_size;
+        new_entry->num_structs = fake->count;
+
+        new_entry->checksum = 0;
+        new_entry->checksum = calc_smbios_checksum((UINT8 *)new_entry, new_entry->length);
+
+        new_entry->intermediate_checksum = 0;
+        new_entry->intermediate_checksum =
+            calc_smbios_checksum((UINT8 *)&new_entry->intermediate_anchor[0], 15);
+
+        for (UINTN i = 0; i < g_st->NumberOfTableEntries; i++) {
+            if (CompareGuid(&g_st->ConfigurationTable[i].VendorGuid, &smbios_guid) == 0) {
+                g_st->ConfigurationTable[i].VendorTable = new_entry;
+                Print(L"[SMBIOS] ConfigurationTable updated (2.x)\n");
+                break;
+            }
+        }
+    }
+
+    Print(L"[SMBIOS] Injection complete!\n");
+    Print(L"[SMBIOS] New table addr: 0x%lx\n", (UINT64)(UINTN)table_buffer);
 
     return EFI_SUCCESS;
 }
 
-/**
- * main spoof function
- */
 EFI_STATUS smbios_spoof_full(const hw_profile_t *profile)
 {
     EFI_STATUS status;
@@ -291,13 +375,11 @@ EFI_STATUS smbios_spoof_full(const hw_profile_t *profile)
     if (!profile)
         return EFI_INVALID_PARAMETER;
 
-    // build fake table
     smbios_table_t fake;
     status = smbios_build_fake(&fake, profile);
     if (EFI_ERROR(status))
         return status;
 
-    // inject into memory
     status = smbios_inject(&fake);
     if (EFI_ERROR(status))
         return status;
