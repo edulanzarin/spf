@@ -2,14 +2,15 @@
 #include "../include/hw_defs.h"
 #include "../include/uefi_defs.h"
 #include "gen/hwid_gen.h"
+#include "spoof/smbios.h"
 #include <efi.h>
 #include <efilib.h>
 
 // global state
-static EFI_SYSTEM_TABLE *g_st = NULL;
-static EFI_BOOT_SERVICES *g_bs = NULL;
-static EFI_RUNTIME_SERVICES *g_rt = NULL;
-static EFI_HANDLE g_image = NULL;
+EFI_SYSTEM_TABLE *g_st = NULL;
+EFI_BOOT_SERVICES *g_bs = NULL;
+EFI_RUNTIME_SERVICES *g_rt = NULL;
+EFI_HANDLE g_image = NULL;
 
 // forward declarations
 EFI_STATUS locate_smbios_table(VOID **table_addr, UINTN *table_size);
@@ -134,13 +135,16 @@ EFI_STATUS locate_smbios_table(VOID **table_addr, UINTN *table_size)
  * perform SMBIOS table spoofing
  * (will be implemented in spoof/smbios.c)
  */
+
 EFI_STATUS spoof_smbios(VOID)
 {
-    // TODO: call smbios_spoof_full() from spoof/smbios.c
-    Print(L"[Nexus] SMBIOS spoofing not yet implemented\n");
-    return EFI_SUCCESS;
-}
+    hw_profile_t profile = {0};
+    EFI_STATUS status = load_profile(&profile);
+    if (EFI_ERROR(status))
+        return status;
 
+    return smbios_spoof_full(&profile);
+}
 /**
  * load hardware profile from NVRAM or use default
  */
