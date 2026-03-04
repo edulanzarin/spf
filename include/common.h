@@ -12,7 +12,7 @@
 #define SPOOF_DISK   (1 << 4)
 #define SPOOF_ALL    0xFF
 
-// SMBIOS type numbers (vanguard coleta esses)
+// SMBIOS type numbers
 #define SMBIOS_TYPE_BIOS                0
 #define SMBIOS_TYPE_SYSTEM              1
 #define SMBIOS_TYPE_BASEBOARD           2
@@ -36,17 +36,17 @@ typedef struct {
     uint8_t length;
     uint16_t handle;
     uint8_t data[512];
-} smbios_entry_t;
+} smbios_table_entry_t;
 
 // SMBIOS table (collection of entries)
 typedef struct {
     uint16_t count;
-    smbios_entry_t entries[64];
+    smbios_table_entry_t entries[64];
 } smbios_table_t;
 
 // config stored in NVRAM
 typedef struct {
-    uint32_t magic; // 0x4E455855 "NEXU"
+    uint32_t magic; // 0x53484442 "SHDB"
     uint8_t flags;
     char profile_name[32];
     uint8_t reserved[64];
@@ -67,7 +67,7 @@ typedef struct {
     struct {
         uint8_t count;
         struct {
-            char signature[4]; // "TPM2", "DSDT", etc
+            char signature[4];
             uint32_t length;
             uint8_t data[2048];
         } tables[8];

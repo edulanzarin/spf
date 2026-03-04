@@ -1,1 +1,62 @@
+# VSCode
 .vscode/*
+!.vscode/c_cpp_properties.json
+
+# Build artifacts
+*.o
+*.so
+*.efi
+*.elf
+*.a
+*.lib
+
+# UEFI specific
+uefi/shadowbyte_spoofer.so
+uefi/shadowbyte_spoofer.efi
+
+# Test artifacts
+esp/
+*.fd
+*.img
+*.iso
+
+# Compiled Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE
+.idea/
+*.iml
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Core dumps
+core
+core.*

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-// SMBIOS header (todo type começa com isso)
+// SMBIOS header
 typedef struct {
     uint8_t type;
     uint8_t length;
@@ -26,7 +26,7 @@ typedef struct {
     uint8_t ec_minor_release;
 } __attribute__((packed)) smbios_type0_t;
 
-// type 1 - system info (CRITICAL pro vanguard)
+// type 1 - system info
 typedef struct {
     smbios_header_t header;
     uint8_t manufacturer_str;
@@ -136,7 +136,6 @@ typedef struct {
 typedef struct {
     smbios_header_t header;
     uint8_t count;
-    // strings seguem depois
 } __attribute__((packed)) smbios_type11_t;
 
 // type 16 - physical memory array
@@ -192,21 +191,35 @@ typedef struct {
 // chassis types (type 3)
 #define CHASSIS_TYPE_OTHER      0x01
 #define CHASSIS_TYPE_DESKTOP    0x03
-#define CHASSIS_TYPE_LAPTOP     0x09
-#define CHASSIS_TYPE_NOTEBOOK   0x0A
 #define CHASSIS_TYPE_TOWER      0x07
 #define CHASSIS_TYPE_MINI_TOWER 0x06
+#define CHASSIS_TYPE_LAPTOP     0x09
+#define CHASSIS_TYPE_NOTEBOOK   0x0A
 
 // processor types (type 4)
 #define PROC_TYPE_OTHER             0x01
 #define PROC_TYPE_CENTRAL_PROCESSOR 0x03
 
 // processor family (type 4)
-#define PROC_FAMILY_INTEL_CORE_I7 0xB3
-#define PROC_FAMILY_INTEL_CORE_I5 0xB5
-#define PROC_FAMILY_AMD_RYZEN     0x6B
-#define PROC_FAMILY_AMD_RYZEN_5   0x107
-#define PROC_FAMILY_AMD_RYZEN_7   0x108
+#define PROC_FAMILY_INTEL_CORE_I3    0xB1
+#define PROC_FAMILY_INTEL_CORE_I5    0xB5
+#define PROC_FAMILY_INTEL_CORE_I7    0xB3
+#define PROC_FAMILY_INTEL_CORE_I9    0xBF
+#define PROC_FAMILY_INTEL_XEON       0xB0
+#define PROC_FAMILY_AMD_RYZEN        0x6B
+#define PROC_FAMILY_AMD_RYZEN_3      0x6B
+#define PROC_FAMILY_AMD_RYZEN_5      0x6B
+#define PROC_FAMILY_AMD_RYZEN_7      0x6B
+#define PROC_FAMILY_AMD_RYZEN_9      0x6B
+#define PROC_FAMILY_AMD_THREADRIPPER 0x6B
+#define PROC_FAMILY_AMD_EPYC         0x83
+
+// processor upgrades (sockets - type 4)
+#define PROC_UPGRADE_LGA1200 0x37
+#define PROC_UPGRADE_LGA1700 0x39
+#define PROC_UPGRADE_AM4     0x2E
+#define PROC_UPGRADE_AM5     0x40
+#define PROC_UPGRADE_sTRX4   0x3D
 
 // memory types (type 17)
 #define MEM_TYPE_DDR3 0x18

@@ -14,7 +14,7 @@ uint16_t smbios_add_entry(smbios_table_t *table, uint8_t type, const void *data,
     if (!table || !data || table->count >= 64)
         return 0xFFFF;
 
-    smbios_entry_t *entry = &table->entries[table->count];
+    smbios_table_entry_t *entry = &table->entries[table->count];
     uint16_t handle = table->count;
 
     entry->type = type;
@@ -29,7 +29,7 @@ uint16_t smbios_add_entry(smbios_table_t *table, uint8_t type, const void *data,
     return handle;
 }
 
-smbios_entry_t *smbios_find_entry(smbios_table_t *table, uint8_t type, uint16_t index)
+smbios_table_entry_t *smbios_find_entry(smbios_table_t *table, uint8_t type, uint16_t index)
 {
     if (!table)
         return NULL;
@@ -75,13 +75,13 @@ bool smbios_remove_entry(smbios_table_t *table, uint16_t handle)
         return false;
 
     memmove(&table->entries[idx], &table->entries[idx + 1],
-            (table->count - idx - 1) * sizeof(smbios_entry_t));
+            (table->count - idx - 1) * sizeof(smbios_table_entry_t));
 
     table->count--;
     return true;
 }
 
-bool smbios_add_strings(smbios_entry_t *entry, const char **strings, uint8_t count)
+bool smbios_add_strings(smbios_table_entry_t *entry, const char **strings, uint8_t count)
 {
     if (!entry || !strings || count == 0)
         return false;
@@ -111,7 +111,7 @@ bool smbios_add_strings(smbios_entry_t *entry, const char **strings, uint8_t cou
     return true;
 }
 
-const char *smbios_get_string(const smbios_entry_t *entry, uint8_t string_index)
+const char *smbios_get_string(const smbios_table_entry_t *entry, uint8_t string_index)
 {
     if (!entry || string_index == 0)
         return NULL;
@@ -139,7 +139,7 @@ uint8_t smbios_calc_checksum(const smbios_table_t *table)
 
     uint8_t sum = 0;
     for (uint16_t i = 0; i < table->count; i++) {
-        smbios_entry_t *e = (smbios_entry_t *)&table->entries[i];
+        smbios_table_entry_t *e = (smbios_table_entry_t *)&table->entries[i];
         for (uint16_t j = 0; j < e->length; j++)
             sum += ((uint8_t *)e)[j];
     }
@@ -153,7 +153,7 @@ uint32_t smbios_serialize(const smbios_table_t *table, uint8_t *buffer, uint32_t
 
     uint32_t offset = 0;
     for (uint16_t i = 0; i < table->count; i++) {
-        const smbios_entry_t *e = &table->entries[i];
+        const smbios_table_entry_t *e = &table->entries[i];
         uint32_t entry_size = e->length + 2;
 
         if (offset + entry_size > buf_size)
@@ -190,7 +190,7 @@ bool smbios_deserialize(smbios_table_t *table, const uint8_t *buffer, uint32_t b
         if (type == 127)
             break;
 
-        smbios_entry_t *e = &table->entries[table->count];
+        smbios_table_entry_t *e = &table->entries[table->count];
         e->type = type;
         e->length = length;
         e->handle = handle;
@@ -212,7 +212,7 @@ bool smbios_deserialize(smbios_table_t *table, const uint8_t *buffer, uint32_t b
     return true;
 }
 
-void smbios_dump_entry(const smbios_entry_t *entry)
+void smbios_dump_entry(const smbios_table_entry_t *entry)
 {
     if (!entry)
         return;
